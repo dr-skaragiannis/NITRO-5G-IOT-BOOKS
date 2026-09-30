@@ -1,0 +1,131 @@
+```json
+{
+    "ctf_name": "From Poison to Antidote: Advancing Cybersecurity Education with AI Attack and Defense Training",
+    "description": "This educational CTF challenge guides participants through the mechanics of machine learning dataset poisoning attacks and data-driven defense methodologies using a Decision Tree Classifier. In the offensive component, participants implement a label-flipping dataset poisoning attack targeting network traffic flows (specifically shifting 'ICMP_FLOOD' signatures into the 'Benign' class) to calculate the degradation of model metrics and evaluate the Attack Success Rate (ASR). In the defensive component, model architecture robustness is advanced by fine-tuning hyperparameters such as tree structural constraints and class balance distribution weights, rendering the pipeline resilient against adversarial ingestion.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Clone the Exercise Dataset Repository",
+            "command": "!git clone https://github.com/Exercise-Dataset/Exercise_Dataset.git",
+            "expected_output": "Cloning into 'Exercise_Dataset'...\nReceiving objects: 100% (3/3), 14.77 MiB | 8.31 MiB/s, done.",
+            "explanation": "This initialization step downloads the necessary comma-separated network telemetry dataset ('exercise.csv') containing structural traffic attributes used to populate training metrics within the machine learning environment.",
+            "associated_flags": [],
+            "next_steps": [
+                "Execute the Baseline and Poisoning Dataset Attack Cycle"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "Execute the Baseline and Poisoning Dataset Attack Cycle",
+            "command": "Run the Python environment block corresponding to Listing 1 inside the notebook workspace to systematically iterate the dataset label-flipping algorithm across poisoning thresholds spanning 10% to 50%.",
+            "expected_output": "Clean Dataset \u2192 Acc: 0.9979, Prec: 0.9543, Rec: 0.9557, F1: 0.9549\nPoisoning 10% \u2192 Acc: 0.9875, Prec: 0.9312, Rec: 0.9454, F1: 0.9362\nPoisoning 20% \u2192 Acc: 0.9749, Prec: 0.9180, Rec: 0.9421, F1: 0.9236\nPoisoning 30% \u2192 Acc: 0.9573, Prec: 0.9062, Rec: 0.9386, F1: 0.9099\nPoisoning 40% \u2192 Acc: 0.9350, Prec: 0.8924, Rec: 0.9264, F1: 0.8895\nPoisoning 50% \u2192 Acc: 0.9104, Prec: 0.8940, Rec: 0.9165, F1: 0.8775",
+            "explanation": "This script trains baseline and attacked versions of a Decision Tree model. By converting real malicious instances ('ICMP_FLOOD') to look like standard background data ('Benign') inside the training pool, the pipeline tests how data corruption degrades structural categorization. Despite massive class manipulation up to 50%, global accuracy metrics appear artificially stable due to structural class imbalances in the sample population.",
+            "associated_flags": [
+                {
+                    "flag_id": "Clean_Dataset_F1",
+                    "question": "What is the F1-score computed for the uncorrupted model baseline using the clean dataset?",
+                    "solution": "FLAG{Clean_Dataset_F1_0.9549}"
+                },
+                {
+                    "flag_id": "Poisoning_30_Accuracy",
+                    "question": "What is the global accuracy score measured when the training set experiences a 30% label poisoning rate?",
+                    "solution": "FLAG{Poisoning_30_Accuracy_0.9573}"
+                },
+                {
+                    "flag_id": "Poisoning_50_Precision",
+                    "question": "What is the macro-averaged precision metric observed at a severe 50% data poisoning threshold?",
+                    "solution": "FLAG{Poisoning_50_Precision_0.8940}"
+                }
+            ],
+            "next_steps": [
+                "Calculate Attack Success Rate for the Weakened Model"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Calculate Attack Success Rate for the Weakened Model",
+            "command": "Run the calculations detailed inside Listing 2 to compute the operational Attack Success Rate (ASR) tracking misclassified instances.",
+            "expected_output": "Poisoning 0% \u2192 ASR: 0.0000\nPoisoning 10% \u2192 ASR: 0.0679\nPoisoning 20% \u2192 ASR: 0.1468\nPoisoning 30% \u2192 ASR: 0.2537\nPoisoning 40% \u2192 ASR: 0.4064\nPoisoning 50% \u2192 ASR: 0.5530",
+            "explanation": "The Attack Success Rate (ASR) quantifies the real-world operational impact of the exploit by tracking how many true positive malicious test samples are successfully accepted as safe ('Benign') by the compromised engine. At a 50% label-flipping rate, the model fails to block over 55.3% of active flood attempts, creating a critical visibility vulnerability.",
+            "associated_flags": [
+                {
+                    "flag_id": "Poisoning_10_ASR",
+                    "question": "What is the Attack Success Rate (ASR) coefficient measured when dataset poisoning is capped at 10%?",
+                    "solution": "FLAG{Poisoning_10_ASR_0.0679}"
+                },
+                {
+                    "flag_id": "Poisoning_40_ASR",
+                    "question": "What is the Attack Success Rate (ASR) coefficient measured when dataset poisoning reaches 40%?",
+                    "solution": "FLAG{Poisoning_40_ASR_0.4064}"
+                },
+                {
+                    "flag_id": "Poisoning_50_ASR",
+                    "question": "What is the final baseline Attack Success Rate (ASR) output at a maximum 50% dataset poisoning rate?",
+                    "solution": "FLAG{Poisoning_50_ASR_0.5530}"
+                }
+            ],
+            "next_steps": [
+                "Deploy Defensive Structural Adjustments and Evaluate Robustness"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Deploy Defensive Structural Adjustments and Evaluate Robustness",
+            "command": "Run the execution code block for Listing 3, passing structural parameters max_depth=20 and class_weight='balanced' into the DecisionTreeClassifier constructor.",
+            "expected_output": "Clean Dataset \u2192 Acc: 0.9978, Prec: 0.9437, Rec: 0.9600, F1: 0.9499\nPoisoning 10% \u2192 Acc: 0.9969, Prec: 0.9397, Rec: 0.9536, F1: 0.9449\nPoisoning 20% \u2192 Acc: 0.9955, Prec: 0.9425, Rec: 0.9508, F1: 0.9456\nPoisoning 30% \u2192 Acc: 0.9963, Prec: 0.9467, Rec: 0.9514, F1: 0.9482\nPoisoning 40% \u2192 Acc: 0.9942, Prec: 0.9320, Rec: 0.9578, F1: 0.9418\nPoisoning 50% \u2192 Acc: 0.9964, Prec: 0.9367, Rec: 0.9558, F1: 0.9440",
+            "explanation": "To insulate the model against train-time label flipping, we configure defensive hyperparameters. Limiting tree elongation via 'max_depth' prevents the classifier from isolating outlier poisoned samples into dedicated pure leaf nodes. Concurrently, implementing 'balanced' class weights ensures that minority status alerts maintain proper mathematical significance even when an adversary tries to dilute them via malicious label conversion. This stabilizes classification boundary accuracy near 99.6% across all attack iterations.",
+            "associated_flags": [
+                {
+                    "flag_id": "Robust_Hyperparameter_1",
+                    "question": "Which tree constraint hyperparameter was declared in Listing 3 to limit leaf overfitting against noisy inputs?",
+                    "solution": "FLAG{Robust_Hyperparameter_1_max_depth}"
+                },
+                {
+                    "flag_id": "Robust_Hyperparameter_2",
+                    "question": "Which weighting hyperparameter was applied to dynamically adjust loss balancing for diluted classes?",
+                    "solution": "FLAG{Robust_Hyperparameter_2_class_weight}"
+                },
+                {
+                    "flag_id": "Robust_Poisoning_20_Accuracy",
+                    "question": "What is the global accuracy score returned by the robustized tree model at a 20% poisoning level?",
+                    "solution": "FLAG{Robust_Poisoning_20_Accuracy_0.9955}"
+                },
+                {
+                    "flag_id": "Robust_Poisoning_50_F1",
+                    "question": "What is the robustized tree model's macro F1-score when enduring maximum 50% dataset poisoning?",
+                    "solution": "FLAG{Robust_Poisoning_50_F1_0.9440}"
+                }
+            ],
+            "next_steps": [
+                "Validate Mitigation Efficacy via Robust ASR Recalculation"
+            ]
+        },
+        {
+            "step_number": 5,
+            "action": "Validate Mitigation Efficacy via Robust ASR Recalculation",
+            "command": "Execute Listing 4 in the notebook workspace to recalculate the final mitigation performance metrics.",
+            "expected_output": "Poisoning 0% \u2192 ASR: 0.0000\nPoisoning 10% \u2192 ASR: 0.0063\nPoisoning 20% \u2192 ASR: 0.0114\nPoisoning 30% \u2192 ASR: 0.0048\nPoisoning 40% \u2192 ASR: 0.0121\nPoisoning 50% \u2192 ASR: 0.0213",
+            "explanation": "Evaluating the robust model against the poisoned dataset shows a drastic reduction in the Attack Success Rate (ASR). By restricting leaf granularity and balancing class weights, the attack impact at 50% poisoning falls from an exploit rate of 55.30% down to a negligible 2.13% error rate, validating the resilience of the pipeline.",
+            "associated_flags": [
+                {
+                    "flag_id": "Robust_Poisoning_10_ASR",
+                    "question": "What is the recalculated Attack Success Rate (ASR) for the robust model under a 10% dataset poisoning attack?",
+                    "solution": "FLAG{Robust_Poisoning_10_ASR_0.0063}"
+                },
+                {
+                    "flag_id": "Robust_Poisoning_30_ASR",
+                    "question": "What is the recalculated Attack Success Rate (ASR) for the robust model under a 30% dataset poisoning attack?",
+                    "solution": "FLAG{Robust_Poisoning_30_ASR_0.0048}"
+                },
+                {
+                    "flag_id": "Robust_Poisoning_50_ASR",
+                    "question": "What is the post-mitigation Attack Success Rate (ASR) achieved by the robust model at the maximum 50% dataset poisoning level?",
+                    "solution": "FLAG{Robust_Poisoning_50_ASR_0.0213}"
+                }
+            ],
+            "next_steps": []
+        }
+    ]
+}
+
+```

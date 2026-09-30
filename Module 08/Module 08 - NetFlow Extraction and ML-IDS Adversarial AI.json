@@ -1,0 +1,46 @@
+{
+    "ctf_name": "Module 08 - NetFlow Extraction and ML-IDS Adversarial AI",
+    "description": "This beginner-friendly CTF challenge guides you through extracting NetFlow data from a 5G lab environment (Open5GS/UERANSIM), training a Machine Learning Intrusion Detection System (ML-IDS) on it, and launching an adversarial poisoning attack to mislead the model. NetFlow captures flow summaries (e.g., IPs, ports, bytes) for security analysis; ML-IDS classifies flows as benign or malicious. Adversarial AI poisons training data by flipping labels. Educational focus: Learn packet capture with tshark, data preprocessing, decision tree training, poisoning mechanics, and metrics evaluation. Use Python for ML; assume lab traffic includes benign pings and simulated ICMP floods. Flags are strings/values from outputs (e.g., after extraction or metrics) proving completion—submit to unlock next steps.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Capture and Extract NetFlow Features from 5G Traffic",
+            "command": "tshark -i any -T fields -e frame.time -e ip.src -e ip.dst -e ip.proto -e ip.len -e tcp.srcport -e tcp.dstport -e icmp.type -e frame.len -Y 'ip' -c 200 > raw_capture.csv (run on host while generating traffic in UE, e.g., ping -c 100 8.8.8.8 and simulate flood with hping3 --icmp -c 100 --flood 8.8.8.8)",
+            "expected_output": "raw_capture.csv with ~200 lines (header + packets); columns like time, src_ip, dst_ip, proto, ip_len, src_port, dst_port, icmp_type, frame_len.",
+            "explanation": "tshark captures packets (-i any for all interfaces), extracts fields (-T fields), filters IP (-Y 'ip'), limits to 200 (-c 200). Redirect to CSV for NetFlow-like data. Generate mixed traffic: benign pings (proto=1, icmp_type=8) and floods (high rate). Education: NetFlow helps IDS detect patterns like floods (high ICMP rate). Analogy: Logging visitor details at a gate without full conversations. Flag: Line count from 'wc -l raw_capture.csv' → e.g., '201'; submit 'FLAG{NetFlow_Captured_201Lines}'.",
+            "next_steps": ["Preprocess Data and Add Labels"]
+        },
+        {
+            "step_number": 2,
+            "action": "Preprocess CSV and Label Flows as Benign or Attack",
+            "command": "In Python (e.g., Jupyter): import pandas as pd; df = pd.read_csv('raw_capture.csv', names=['time','src_ip','dst_ip','proto','ip_len','src_port','dst_port','icmp_type','frame_len']); df['label'] = 'Benign'; df.loc[(df['proto']==1) & (df['icmp_type']==8) & (df['frame_len'] > 100), 'label'] = 'ICMP_FLOOD'; # Arbitrary threshold for flood; df.to_csv('labeled_flows.csv'); print(df['label'].value_counts())",
+            "expected_output": "Counts: e.g., Benign: 120, ICMP_FLOOD: 80.",
+            "explanation": "Pandas loads CSV, adds 'label' based on features (e.g., large ICMP echoes as flood). Education: Preprocessing aggregates packets into flows (here simplified); real NetFlow tools like nfdump do this. Analogy: Sorting mail into 'normal' or 'suspicious' based on size/stamp. Adjust threshold to simulate attacks. Flag: Flood count from print, e.g., '80'; submit 'FLAG{Labeled_80Floods}'.",
+            "next_steps": ["Train Basic ML-IDS Model"]
+        },
+        {
+            "step_number": 3,
+            "action": "Train Decision Tree ML-IDS on Labeled Flows",
+            "command": "In Python: from sklearn.tree import DecisionTreeClassifier; from sklearn.model_selection import train_test_split; from sklearn.metrics import accuracy_score; X = df[['proto','ip_len','frame_len']]; y = df['label']; X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42); model = DecisionTreeClassifier(random_state=42); model.fit(X_train, y_train); preds = model.predict(X_test); acc = accuracy_score(y_test, preds); print(f'Clean Accuracy: {acc:.4f}')",
+            "expected_output": "Clean Accuracy: e.g., 0.9750.",
+            "explanation": "Splits data, trains tree on features, evaluates accuracy. Education: ML-IDS in 5G detects anomalies in core/UE flows. Analogy: Tree as question chain: 'Is proto 1? Is len >100? Then flood.' High clean acc shows good baseline. Flag: Printed accuracy, e.g., '0.9750'; submit 'FLAG{BasicIDS_CleanAcc_0.9750}'.",
+            "next_steps": ["Poison Training Data Adversarially"]
+        },
+        {
+            "step_number": 4,
+            "action": "Adversarially Poison Training Data by Flipping Labels",
+            "command": "In Python: poison_rate = 0.3; flood_train = y_train[y_train=='ICMP_FLOOD'].index; flip_count = int(len(flood_train)*poison_rate); flip_indices = flood_train[:flip_count]; y_train.loc[flip_indices] = 'Benign'; # Retrain; poisoned_preds = model.predict(X_test); poisoned_acc = accuracy_score(y_test, poisoned_preds); print(f'Poisoned Accuracy: {poisoned_acc:.4f}')",
+            "expected_output": "Poisoned Accuracy: e.g., 0.8500 (drop from clean).",
+            "explanation": "Flips 30% flood labels to benign in train, retrains. Education: Adversarial poisoning hides attacks in ML-IDS. Analogy: Tampering with training examples to teach wrong lessons. Drop shows vulnerability. Flag: Poisoned acc, e.g., '0.8500'; submit 'FLAG{Poisoned_Acc_0.8500_AttackWins}'.",
+            "next_steps": ["Calculate ASR for Poisoned Model"]
+        },
+        {
+            "step_number": 5,
+            "action": "Calculate Attack Success Rate (ASR) on Poisoned Model",
+            "command": "In Python: flood_test_indices = y_test[y_test=='ICMP_FLOOD'].index; misclass = (poisoned_preds[flood_test_indices] == 'Benign').sum(); asr = misclass / len(flood_test_indices) if len(flood_test_indices)>0 else 0; print(f'ASR: {asr:.4f}')",
+            "expected_output": "ASR: e.g., 0.6000 (60% floods missed).",
+            "explanation": "ASR=misclassified floods as benign / total test floods. High ASR=successful poison. Education: Measures targeted evasion in adversarial AI. Analogy: Percentage of hidden spies undetected. Flag: ASR value, e.g., '0.6000'; submit 'FLAG{ASR_0.6000_PoisonEffective}'.",
+            "next_steps": []
+        }
+    ]
+}

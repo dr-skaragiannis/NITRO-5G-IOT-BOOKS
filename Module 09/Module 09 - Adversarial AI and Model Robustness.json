@@ -1,0 +1,54 @@
+{
+    "ctf_name": "Module 09 - Adversarial AI and Model Robustness",
+    "description": "This beginner-friendly CTF challenge builds on Module 08 by exploring advanced adversarial AI (e.g., evasion via feature perturbation) and building robust ML-IDS models. You'll perturb test data to evade detection, then defend with techniques like adversarial training and ensemble models. Educational focus: Learn evasion attacks (changing features to fool models), robustness methods (e.g., training on perturbed data), and metrics like evasion rate. Use the labeled_flows.csv from Module 08; flags from outputs proving defense success (e.g., reduced evasion rate). Submit to validate robustness.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Load Poisoned Model from Module 08 and Prepare for Evasion",
+            "command": "In Python: # Assume model from Mod08; df_test = pd.read_csv('labeled_flows.csv').loc[X_test.index]; # Use test subset",
+            "expected_output": "df_test ready with original features and labels.",
+            "explanation": "Evasion is adversarial AI on test data—change features (e.g., reduce packet len) to make attacks look benign without retraining. Education: Unlike poisoning (train-time), evasion is inference-time. Analogy: Disguising a thief at the door vs. bribing the trainer. No flag—setup step.",
+            "next_steps": ["Perform Evasion Attack by Perturbing Features"]
+        },
+        {
+            "step_number": 2,
+            "action": "Evasion Attack: Perturb Test Flood Features to Evade Detection",
+            "command": "In Python: perturbed_test = df_test.copy(); flood_idx = perturbed_test[perturbed_test['label']=='ICMP_FLOOD'].index; perturbed_test.loc[flood_idx, 'ip_len'] *= 0.5; # Halve len to mimic benign; evaded_preds = model.predict(perturbed_test[['proto','ip_len','frame_len']]); evasion_rate = (evaded_preds[flood_idx] == 'Benign').mean(); print(f'Evasion Rate: {evasion_rate:.4f}')",
+            "expected_output": "Evasion Rate: e.g., 0.7500 (75% floods now classified benign).",
+            "explanation": "Perturb by modifying features (e.g., smaller packets look less flood-like). Predict on perturbed; high rate=successful evasion. Education: Adversarial AI exploits model boundaries. Analogy: Shrinking a large package to slip past size checks. Flag: Evasion rate, e.g., '0.7500'; submit 'FLAG{Evasion_Rate_0.7500_AttackSucceeds}'.",
+            "next_steps": ["Train Robust Model with Adversarial Training"]
+        },
+        {
+            "step_number": 3,
+            "action": "Defend: Train Robust Model Using Adversarial Training",
+            "command": "In Python: # Augment train with perturbed copies; perturbed_train = X_train.copy(); flood_train_idx = y_train[y_train=='ICMP_FLOOD'].index; perturbed_train.loc[flood_train_idx, 'ip_len'] *= 0.8; # Mild perturb; aug_X = pd.concat([X_train, perturbed_train]); aug_y = pd.concat([y_train, y_train]); robust_model = DecisionTreeClassifier(random_state=42, class_weight='balanced', max_depth=10); robust_model.fit(aug_X, aug_y); robust_preds = robust_model.predict(X_test); robust_acc = accuracy_score(y_test, robust_preds); print(f'Robust Accuracy: {robust_acc:.4f}')",
+            "expected_output": "Robust Accuracy: e.g., 0.9600 (stable post-poison/evasion).",
+            "explanation": "Adversarial training adds perturbed examples to train, teaching resilience. Limit depth/weight classes. Education: Builds robustness against adversarial AI. Analogy: Training guards with disguised thieves. Higher acc than poisoned. Flag: Robust acc, e.g., '0.9600'; submit 'FLAG{Robust_Acc_0.9600_DefenseStarts}'.",
+            "next_steps": ["Recalculate Evasion Rate on Robust Model"]
+        },
+        {
+            "step_number": 4,
+            "action": "Recalculate Evasion Rate on Robust Model",
+            "command": "In Python: robust_evaded_preds = robust_model.predict(perturbed_test[['proto','ip_len','frame_len']]); robust_evasion_rate = (robust_evaded_preds[flood_idx] == 'Benign').mean(); print(f'Robust Evasion Rate: {robust_evasion_rate:.4f}')",
+            "expected_output": "Robust Evasion Rate: e.g., 0.2000 (reduced from 0.75).",
+            "explanation": "Reuse perturbed test; low rate shows defense works. Education: Measures robustness to evasion in adversarial AI. Analogy: Disguise fails against trained eyes. Flag: Robust evasion rate, e.g., '0.2000'; submit 'FLAG{Robust_Evasion_0.2000_DefenseStrong}'.",
+            "next_steps": ["Implement Ensemble for Extra Robustness"]
+        },
+        {
+            "step_number": 5,
+            "action": "Advanced Defense: Use Ensemble of Models for Robustness",
+            "command": "In Python: from sklearn.ensemble import RandomForestClassifier; ensemble_model = RandomForestClassifier(n_estimators=10, random_state=42, class_weight='balanced'); ensemble_model.fit(aug_X, aug_y); ensemble_preds = ensemble_model.predict(X_test); ensemble_acc = accuracy_score(y_test, ensemble_preds); print(f'Ensemble Accuracy: {ensemble_acc:.4f}')",
+            "expected_output": "Ensemble Accuracy: e.g., 0.9800 (even higher).",
+            "explanation": "RandomForest ensembles multiple trees, averaging for robustness. Education: Ensembles resist adversarial AI by diversity. Analogy: Committee vote harder to fool than one judge. Flag: Ensemble acc, e.g., '0.9800'; submit 'FLAG{Ensemble_Acc_0.9800_RobustWin}'.",
+            "next_steps": ["Final: Generate Confusion Matrix and Extract TP Flag"]
+        },
+        {
+            "step_number": 6,
+            "action": "Generate Confusion Matrix for Ensemble and Extract Final Flag",
+            "command": "In Python: from sklearn.metrics import confusion_matrix; import seaborn as sns; cm = confusion_matrix(y_test, ensemble_preds); sns.heatmap(cm, annot=True, fmt='d'); plt.show(); # TP for ICMP_FLOOD is cm[1,1] assuming index 1=flood; print(cm[1,1])",
+            "expected_output": "Heatmap; TP printed, e.g., 38.",
+            "explanation": "Matrix shows classifications; TP=true floods detected. Education: Visualizes robustness in adversarial settings. Analogy: Report card for each threat type. Final proof of defense. Flag: TP value, e.g., '38'; submit 'FLAG{Confusion_TP_38_ModuleComplete}'.",
+            "next_steps": []
+        }
+    ]
+}

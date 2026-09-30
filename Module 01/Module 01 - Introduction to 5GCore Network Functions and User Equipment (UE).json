@@ -1,0 +1,73 @@
+{
+    "ctf_name": "Ping and Basic Communication in 5G Network",
+    "description": "This guide provides a step-by-step walkthrough for beginners on exploring how basic user traffic, like a simple ping command, behaves in a simulated 5G environment using Open5GS and UERANSIM. Unlike older networks, 5G uses special tunnels called GTP-U to encapsulate and transport data during PDU (Protocol Data Unit) sessions. You'll learn to access the User Equipment (UE) container, examine tunnel interfaces like uesimtun0 and uesimtun1, send ping packets, and monitor traffic with tools like tshark to understand the underlying 5G transport mechanisms. This is an educational exercise in a controlled lab to reveal how 5G standalone networks handle data transmission, helping you grasp concepts like tunneling, PDU sessions, QoS (Quality of Service), and IP versions.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Access the UE Container",
+            "command": "docker exec -it open5gs-and-ueransim-ues1-1 bash",
+            "expected_output": "You are now inside the UE container's bash shell (the prompt changes to something like 'root@open5gs-and-ueransim-ues1-1:/#'), allowing you to run commands directly in the simulated UE environment.",
+            "explanation": "Docker is a platform that runs software in isolated 'containers' – think of them as lightweight virtual machines. The UE (User Equipment) container simulates 5G devices like smartphones. The command 'docker exec -it' lets you enter the container interactively ('-i' for interactive, '-t' for terminal). 'bash' starts a shell where you can type commands. This step is crucial because it puts you inside the simulated UE, where you can interact with its network interfaces and send traffic like pings to see how 5G handles it.",
+            "next_steps": [
+                "Check Network Interfaces Inside the Container"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "Check Network Interfaces Inside the Container",
+            "command": "ip a",
+            "expected_output": "A list of network interfaces appears, including uesimtun0 and uesimtun1, showing their IP addresses (e.g., IPv4 or IPv6) and status (up or down). These are virtual tunnel interfaces created during PDU session setup.",
+            "explanation": "The 'ip a' command (short for 'ip address') displays all network interfaces on the system, like virtual 'ports' for sending/receiving data. In 5G, PDU sessions establish connections for data transfer, and tunnels like uesimtun0/uesimtun1 use GTP-U (GPRS Tunneling Protocol - User Plane) to encapsulate packets securely. This step confirms the tunnels are set up and helps identify which one handles IPv4 (older internet protocol) or IPv6 (newer, with more addresses). Understanding interfaces is key to troubleshooting networks and seeing how 5G differs from 4G or Wi-Fi.",
+            "next_steps": [
+                "Execute an Initial Ping to a Public IP Address"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Execute an Initial Ping to a Public IP Address",
+            "command": "ping 8.8.8.8",
+            "expected_output": "Ping responses showing round-trip times (e.g., '64 bytes from 8.8.8.8: icmp_seq=1 ttl=117 time=1.23 ms'), indicating successful echo requests and replies. Press Ctrl+C to stop after a few pings.",
+            "explanation": "'Ping' is a basic networking tool that sends ICMP (Internet Control Message Protocol) echo requests to check if a device (here, Google's DNS server at 8.8.8.8) is reachable and measure latency. In 5G, these packets aren't sent directly; they're encapsulated in GTP-U tunnels for security and efficiency. This step tests basic connectivity without specifying an interface, letting the system choose the default one. It's a simple way to verify the simulated 5G network is working before diving deeper.",
+            "next_steps": [
+                "Monitor Traffic with tshark Outside the Container"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Monitor Traffic with tshark Outside the Container",
+            "command": "tshark -i any udp (run this in a separate terminal on the host machine, outside the container)",
+            "expected_output": "Live capture of UDP packets, showing traffic details like source/destination IPs, ports, and encapsulated protocols (e.g., GTP headers wrapping ICMP ping packets). Look for lines indicating GTP encapsulation.",
+            "explanation": "tshark is a command-line version of Wireshark, a popular packet analyzer tool that 'sniffs' network traffic. '-i any' captures on all interfaces, and 'udp' filters for UDP (User Datagram Protocol) packets, which GTP-U uses. Run this outside the container to monitor the host's view of traffic. This reveals how 5G encapsulates pings in GTP – the outer layer is UDP/GTP, inner is IP/ICMP. It's educational for understanding protocol stacks: application (ping) > transport (UDP) > network (IP) > but in 5G, added tunneling for core network routing.",
+            "next_steps": [
+                "Retry Ping Using the uesimtun0 Interface"
+            ]
+        },
+        {
+            "step_number": 5,
+            "action": "Retry Ping Using the uesimtun0 Interface",
+            "command": "ping -I uesimtun0 8.8.8.8 (inside the UE container; stop with Ctrl+C after observing)",
+            "expected_output": "Similar ping responses as before, but now forced through uesimtun0. In tshark, observe GTP-encapsulated ICMP packets specifically from this tunnel.",
+            "explanation": "The '-I' flag specifies the interface (uesimtun0) to use for sending packets, overriding the default. This tests one specific PDU session's tunnel. Differences might arise if uesimtun0 is for IPv4, has certain QoS (priority rules for traffic), or session settings. QoS ensures critical data (e.g., voice) gets priority over pings. Monitoring with tshark shows the GTP header details, like TEID (Tunnel Endpoint Identifier), which uniquely identifies the tunnel. This step highlights how 5G manages multiple sessions for better flexibility.",
+            "next_steps": [
+                "Retry Ping Using the uesimtun1 Interface"
+            ]
+        },
+        {
+            "step_number": 6,
+            "action": "Retry Ping Using the uesimtun1 Interface",
+            "command": "ping -I uesimtun1 8.8.8.8 (inside the UE container; stop with Ctrl+C after observing)",
+            "expected_output": "Ping responses, but possibly different behavior (e.g., failures if IPv6-only, slower due to QoS, or no response if inactive). In tshark, note variations in encapsulation or lack thereof.",
+            "explanation": "Similar to the previous step, but for uesimtun1. You might see differences because tunnels can be configured for different IP versions (IPv4 vs. IPv6 – IPv6 has larger addresses for more devices), QoS profiles (e.g., one for low-latency gaming, another for browsing), or PDU types. If one fails, it could mean that session isn't set for internet access. This teaches 5G's multi-session capability: a single UE can have separate tunnels for different apps or networks, improving efficiency and security.",
+            "next_steps": [
+                "Observe Differences and Extract the Flag"
+            ]
+        },
+        {
+            "step_number": 7,
+            "action": "Observe Differences and Extract the Flag",
+            "command": "Review tshark output from the pings; look for the specific message type in GTP encapsulation (no new command, just analyze)",
+            "expected_output": "In tshark, lines like 'GTP Echo Request' or similar, but specifically the encapsulated type, e.g., 'GTP PDU (ICMP Echo (ping) request)'. The flag is this message type string.",
+            "explanation": "The 'flag' in CTF (Capture The Flag) challenges is a key phrase proving completion. Here, it's the GTP message type for the ping, like 'GTP encapsulated ICMP Echo (ping) request'. tshark decodes packets to show this. This step ties everything together: pings aren't plain ICMP in 5G; they're wrapped in GTP for transport between gNB (base station) and UPF (User Plane Function). Understanding this reveals 5G's core innovation – separating control (signaling) from user plane (data) for scalability. If differences occur, it's due to session configs; experiment to learn more."
+        }
+    ]
+}

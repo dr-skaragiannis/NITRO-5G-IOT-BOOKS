@@ -1,0 +1,69 @@
+{
+    "ctf_name": "How to Change / Add Network Slices in Open5GS Lab",
+    "description": "This enhanced guide for beginners dives deeper into modifying or adding network slices in an Open5GS + UERANSIM setup, with a focus on educational concepts from 5G architecture. Network slicing is a revolutionary 5G feature that virtualizes the network into isolated 'slices' tailored for specific needs, like high-bandwidth video streaming (eMBB) or low-latency autonomous driving (URLLC). In Open5GS, slices are defined by NSSAI (SST/SD), linked to DNNs, and can include QoS restrictions like bandwidth limits (AMBR/MBR), priority (ARP), and flow rules (5QI/GBR). You'll add a second slice with bandwidth restrictions (e.g., cap upload/download rates), update configs and subscriptions, and test isolation/QoS differences. This builds on your lab (e.g., from ping/replay challenges), teaching real-world 5G customization and vulnerability implications (e.g., misconfigured QoS leading to DoS). Assumes docker-compose with mounted configs.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Stop containers for clean config apply",
+            "command": "docker compose down",
+            "expected_output": "All containers (amf, smf, upf, ues1, gnb, etc.) stop gracefully.",
+            "explanation": "In 5G, the core network (EPC/5GC) loads configurations at startup to ensure consistency. Stopping containers clears any cached state, preventing conflicts when adding slices. This step mirrors real telecom operations where changes require controlled restarts to avoid service disruption. Educationally, slices enable 'network-as-a-service' (NaaS), allowing operators to sell customized connectivity without dedicated hardware.",
+            "next_steps": ["Edit SMF config to add/change slice with QoS"]
+        },
+        {
+            "step_number": 2,
+            "action": "Add or change slices in SMF config with bandwidth restrictions (host terminal)",
+            "command": "Edit smf.yaml (e.g., in config/open5gs/smf.yaml). Under 'smf:' → 'info:' add/replace:\ninfo:\n  - s_nssai:\n      - sst: 1\n        sd: 000001\n    dnn:\n      - internet\n  - s_nssai:\n      - sst: 2\n        sd: 000001\n    dnn:\n      - lowlatency\nUnder each dnn, add QoS e.g.:\n    qos:\n      default:\n        5qi: 9\n        arp:\n          priority_level: 8\n        mbr:\n          downlink: 10000000  # 10 Mbps\n          uplink: 5000000     # 5 Mbps\n        gbr:\n          downlink: 5000000   # 5 Mbps guaranteed\n          uplink: 2000000     # 2 Mbps guaranteed",
+            "expected_output": "File saved. SMF now supports SST=1 (unrestricted eMBB) and SST=2 (restricted low-latency) with MBR/AMBR caps (bits per second).",
+            "explanation": "SMF (Session Management Function) orchestrates PDU sessions and enforces slice policies. SST defines service type (1=eMBB for high data, 2=URLLC for reliability/low latency). SD differentiates (e.g., for enterprise vs. consumer). DNN acts like an APN. QoS additions: 5QI sets flow priority (9=best-effort), ARP=allocation/retention priority, MBR=max bit rate (limits bandwidth to prevent overload), GBR=guaranteed bit rate (ensures minimum for critical apps). This restricts the new slice's bandwidth, simulating real scenarios like capping IoT slices to save resources or prioritizing emergency services. Educationally, poor QoS config can lead to vulnerabilities, e.g., attackers exploiting uncapped slices for DDoS.",
+            "next_steps": ["Update AMF to support new slice"]
+        },
+        {
+            "step_number": 3,
+            "action": "Update AMF supported slices and QoS profiles (if needed)",
+            "command": "Edit amf.yaml → under 'plmn_support:' → 's_nssai:' add:\n- sst: 2\n  sd: 000001\nOptionally add QoS under 'qos:' if global, but slice-specific in SMF.",
+            "expected_output": "AMF now advertises SST=2 support via NGAP to gNB.",
+            "explanation": "AMF (Access and Mobility Function) handles UE registration and slice selection based on NSSAI. It must list supported slices; otherwise, UEs get rejected (cause #62: no slice available). Wildcard SD (ffffff) allows flexibility. QoS here is optional but educates on how AMF relays policies to RAN for radio resource allocation. In 5G, this ensures end-to-end QoS, from UE to UPF, preventing bottlenecks.",
+            "next_steps": ["Update UE subscription with QoS"]
+        },
+        {
+            "step_number": 4,
+            "action": "Add slice and QoS restrictions to UE subscription",
+            "command": "Via WebUI (http://localhost:3000) → Subscribers → Edit IMSI → Add slice:\nsst: 2\nsd: 000001\ndefault_indicator: false\nUnder QoS, add per slice: ambr: {downlink: 10000000, uplink: 5000000}, session: {name: lowlatency, qos: {index: 9, arp: {priority_level: 8}}}",
+            "expected_output": "Subscriber updated (verify with dbctl showpretty). UE now subscribed to restricted slice.",
+            "explanation": "Subscriptions in MongoDB (UDM equivalent) authorize slices and QoS. AMBR=aggregate max bit rate across sessions. Without matching QoS, sessions fail (cause #29). This step teaches personalization: e.g., premium users get uncapped slices, IoT devices restricted to low bandwidth for efficiency/security. Educationally, subscriptions prevent unauthorized high-bandwidth access, mitigating abuse.",
+            "next_steps": ["Configure UERANSIM UE to request new slice"]
+        },
+        {
+            "step_number": 5,
+            "action": "Update UE config to request new slice with QoS awareness",
+            "command": "Edit ue.yaml → 'sessions:' add:\n- type: ipv4\n  apn: lowlatency\n  slice:\n    sst: 2\n    sd: 000001\n  qos:\n    index: 9  # Match 5QI\nAdd to 'slices:' if not present.",
+            "expected_output": "UE config saved. It will request PDU for restricted slice.",
+            "explanation": "UERANSIM simulates UE behavior. Requested NSSAI proposes slices during attach; QoS in config ensures compatibility. This mirrors how real devices (e.g., 5G phones) negotiate sessions. Educationally, mismatched QoS causes rejections, highlighting 5G's granular control for diverse use cases like AR/VR (high bandwidth) vs. sensors (low).",
+            "next_steps": ["Restart lab and check registration"]
+        },
+        {
+            "step_number": 6,
+            "action": "Restart lab and verify slice/QoS",
+            "command": "docker compose up -d\ndocker logs open5gs-smf-1 | grep qos (check for loaded restrictions)",
+            "expected_output": "SMF/AMF logs show slices/QoS loaded. UE logs: accepts with MBR/GBR applied. ip a in UE shows multiple uesimtunX.",
+            "explanation": "Restart activates changes. Verify in logs: 'QoS Flow: 5QI=9, MBR=10Mbps'. If errors (e.g., 'QoS not authorized'), check matches. This step educates on troubleshooting: use tools like tshark for NAS messages showing QoS IEs.",
+            "next_steps": ["Test slices with bandwidth restrictions"]
+        },
+        {
+            "step_number": 7,
+            "action": "Test traffic on slices and observe restrictions",
+            "command": "In UE container: iperf3 -c 8.8.8.8 -R -t 30 -i uesimtun0  # Unrestricted slice\niperf3 -c 8.8.8.8 -R -t 30 -i uesimtun1  # Restricted (expect ~10Mbps down)",
+            "expected_output": "iperf shows higher bandwidth on slice 1 vs. capped on slice 2. Use tshark -i any udp port 2152 -Y gtp to see TEIDs/QoS tags.",
+            "explanation": "iperf tests bandwidth (install if needed: apt install iperf3 in container). Restrictions enforce MBR/GBR, dropping excess packets. Educationally, this demonstrates slice isolation: e.g., video slice uncapped, IoT capped to prevent congestion. In security, restrictions limit attack impacts.",
+            "next_steps": ["Monitor signaling for QoS"]
+        },
+        {
+            "step_number": 8,
+            "action": "Monitor slice/QoS in signaling",
+            "command": "tshark -i any -Y nas-5gs.sm.5gsm.qos_rules -T fields -e nas_5gs.sm.qos_rules.mbr_dl -e nas_5gs.sm.qos_rules.gbr_ul",
+            "expected_output": "Captures show MBR/GBR values in PDU Session Establishment Accept.",
+            "explanation": "NAS (Non-Access Stratum) carries QoS rules from SMF to UE. This passive analysis educates on protocol details: QoS IEs ensure compliance. In CTFs, flags might be QoS values or rejection causes from misconfigs."
+        }
+    ]
+}

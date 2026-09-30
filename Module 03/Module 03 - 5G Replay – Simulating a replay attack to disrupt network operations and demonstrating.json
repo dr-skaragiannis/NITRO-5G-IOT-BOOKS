@@ -1,0 +1,43 @@
+{
+    "ctf_name": "Execute Custom Replay Attack in 5G Network",
+    "description": "This guide provides a step-by-step walkthrough for beginners on simulating a replay attack in a 5G network environment using the 5GReplay tool. A replay attack involves capturing network traffic (packets) and resending them to trick or disrupt the system. You'll learn to replay a .pcap file (a packet capture file that stores network data), monitor SCTP (Stream Control Transmission Protocol) traffic – a reliable protocol used in 5G for signaling between network elements like the gNB and core – and observe how the network rejects connections because the destination port (e.g., 38412, used for 5G NGAP signaling) isn't listening in this setup. This is an educational exercise in a controlled lab to understand 5G vulnerabilities, packet analysis, and why topology (network layout) matters. Assumes the 5G lab with Open5GS, UERANSIM, and 5GReplay is set up.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Navigate to the 5GReplay Directory",
+            "command": "cd /path/to/5greplay-0.0.1 (replace with the actual path to the directory containing the 5greplay executable, e.g., 5greplay-0.0.1)",
+            "expected_output": "The terminal prompt changes to reflect the new directory, and running 'ls' shows files like the 5greplay executable and the 5g-sa.pcap file.",
+            "explanation": "In Linux terminals, 'cd' (change directory) moves you to a specific folder. The 5GReplay tool is a specialized program for replaying 5G network traffic from .pcap files. .pcap files are like recordings of network conversations, captured using tools like tcpdump or Wireshark. This step positions you in the right place to run the tool. If you don't know the path, use 'find / -name 5greplay' to locate it, but that might take time. Understanding directories is basic file navigation in command-line interfaces.",
+            "next_steps": [
+                "Start Monitoring Network Traffic"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "Start Monitoring Network Traffic",
+            "command": "tcpdump -i any sctp (run this in one terminal window; or open Wireshark, set capture interface to 'any', and apply filter 'sctp')",
+            "expected_output": "tcpdump starts capturing and displays live SCTP packets as they occur, e.g., lines showing source/destination IPs, ports, and SCTP chunk types like [INIT] or [ABORT]. Press Ctrl+C to stop later. In Wireshark, a capture window shows similar packet details in a GUI.",
+            "explanation": "tcpdump is a command-line packet sniffer that captures network traffic on interfaces ('-i any' means all interfaces). 'sctp' filters for SCTP protocol packets only. SCTP is like TCP but better for telecom, supporting multi-homing (multiple paths) and chunk-based messages. In 5G, it's used for control signaling. Wireshark is a graphical alternative for easier visualization – it dissects packets to show details like chunk types (e.g., INIT for starting a connection). Start monitoring first so you can see the replayed traffic in real-time. This teaches packet analysis, a key skill in cybersecurity and networking.",
+            "next_steps": [
+                "Execute the Replay Attack"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Execute the Replay Attack",
+            "command": "sudo ./5greplay replay -t 5g-sa.pcap -Xforward.nb-copies=2000 -Xforward.default=FORWARD (run this in a separate terminal window from the monitoring one)",
+            "expected_output": "The tool runs, replaying the packets from the .pcap file 2000 times (nb-copies=2000). It may show progress or logs about forwarding packets. In the monitoring terminal, you'll see a flood of SCTP packets, starting with [INIT] requests, followed by rejections like [ABORT] because the port isn't listening.",
+            "explanation": "'sudo' runs the command with superuser privileges, needed for network operations. './5greplay' executes the tool in the current directory. 'replay' mode resends packets from '-t 5g-sa.pcap' (the capture file). '-Xforward.nb-copies=2000' sends 2000 copies to amplify the attack, and '-Xforward.default=FORWARD' sets the default action to forward packets. A replay attack can disrupt services by confusing the network with old data. Here, since the .pcap is from a different topology (network setup), the destination port 38412 (standard for 5G AMF signaling) isn't open, so connections fail immediately. This step demonstrates why matching environments is crucial in simulations.",
+            "next_steps": [
+                "Observe the Behavior and Extract the Flag"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Observe the Behavior and Extract the Flag",
+            "command": "Review the output in the tcpdump or Wireshark window (no new command, just analyze the captured traffic)",
+            "expected_output": "In tcpdump/Wireshark, packets show SCTP chunks: the initial request type is [INIT] (initiation), followed by [ABORT] rejections. The flag is the type of request, e.g., '[INIT]'.",
+            "explanation": "As packets are replayed, watch for patterns. SCTP connections start with an INIT chunk (like a handshake request). If the port isn't listening (no service on port 38412), the system sends an ABORT chunk to reject it, similar to a 'door closed' sign. This happens because the .pcap doesn't match your lab's topology – IPs, ports, or configurations differ. The 'flag' in CTF is proof of observation, here the request type [INIT]. This educates on protocol behaviors: SCTP's reliability prevents simple TCP-like floods but is vulnerable to replays if not secured (e.g., with timestamps or nonces). In real 5G, encryption and integrity checks mitigate this. Repeat if needed to confirm."
+        }
+    ]
+}

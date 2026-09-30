@@ -1,0 +1,308 @@
+{
+    "ctf_name": "Cascading Effects using Network Slice Propagation & Session Hijacking using IMSI Spoofing",
+    "description": "This educational guide walks through a detailed 5G security laboratory exercise focused on two major components: Red Team exploitation and Blue Team mitigation. The exercise covers PFCP session deletion attacks causing a widespread Denial of Service (DoS) across network slices, alongside IMSI spoofing and impersonation techniques inside an emulated Open5GS environment. Finally, it outlines how defensive operators implement mitigation controls using tools like iptables, network traffic logging, and Subscriber/IMEI verification via the Open5GS WebUI.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Locate the PFCP Exploitation Script",
+            "command": "Login to the User Equipment (UE) container and inspect the root folder to locate the script.",
+            "expected_output": "The file named 'pfcp_exploit.py' is found in the root directory.",
+            "explanation": "In this CTF environment, the initial step requires identifying the tool designated for Packet Forwarding Control Protocol (PFCP) manipulation. The flag for this discovery phase is the file name itself: 'pfcp_exploit.py'.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 1",
+                    "question": "The Flag is the name of the exploit script.",
+                    "solution": "pfcp_exploit.py"
+                }
+            ],
+            "next_steps": [
+                "Identify the Packet Generation Module"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "Identify the Packet Generation Module",
+            "command": "cat pfcp_exploit.py",
+            "expected_output": "The script contents are displayed, showing an import statement for 'scapy'.",
+            "explanation": "Reviewing the script reveals that the 'scapy' library is imported to craft and inject custom network packets. Scapy allows the modification of raw layer headers to build non-standard network messages.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 2",
+                    "question": "What is the module that is used to send those types of message/packet?",
+                    "solution": "scapy"
+                }
+            ],
+            "next_steps": [
+                "Execute the PFCP Session Hijacking Attack"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Execute the PFCP Session Hijacking Attack",
+            "command": "python3 pfcp_exploit.py --gnb-ip <gnb_ip> --upf-ip <upf_ip>",
+            "expected_output": "The script runs a brute-force loop against the Session Establishment Identity (SEID) up to the maximum 64-bit boundary (0xFFFFFFFFFFFFFFFF), sending custom PFCP Session Deletion Requests (hexadecimal command code 0x36).",
+            "explanation": "This attack takes advantage of a misconfiguration where the PFCP and Session Management Function (SMF) do not filter traffic based on source validation. An unprivileged user can guess active SEIDs via brute-force and send malicious deletion messages, tearing down data sessions across all network slices.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 3",
+                    "question": "Does a user need to be a privileged to execute this exploit?",
+                    "solution": "No"
+                },
+                {
+                    "flag_id": "Flag 4",
+                    "question": "What is the end range of SEID in the script?",
+                    "solution": "0xFFFFFFFFFFFFFFFF"
+                },
+                {
+                    "flag_id": "Flag 5",
+                    "question": "What is the hexadecimal that will delete the session by request for the pfcp?",
+                    "solution": "0x36"
+                }
+            ],
+            "next_steps": [
+                "Verify Outbound Data Drop on the First Slice"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Verify Outbound Data Drop on the First Slice",
+            "command": "ping -I uesimtun0 8.8.8.8",
+            "expected_output": "0 packets are successfully sent/received; the interface drops connectivity.",
+            "explanation": "Executing a ping test bound to the cellular tunnel interface ('uesimtun0') proves that the user plane data path has been successfully terminated by the injected PFCP deletion frame.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 6",
+                    "question": "After the execution of the exploit script, execute a ping with an interface (like uesimtun0) with the command ping -I uesimtun0 8.8.8.8, how many packages are being send?",
+                    "solution": "0"
+                }
+            ],
+            "next_steps": [
+                "Verify Cross-Slice Propagation on gNB2"
+            ]
+        },
+        {
+            "step_number": 5,
+            "action": "Verify Cross-Slice Propagation on gNB2",
+            "command": "Login to gNB2 (Slice 2) and execute: ping -I uesimtun0 8.8.8.8",
+            "expected_output": "0 packets are successfully transmitted; network communication fails on Slice 2 as well.",
+            "explanation": "This confirms the 'Cascading Effect'. Because the core function was poorly isolated, the teardown request propagated across slice boundaries, inducing a total network Denial of Service (DoS) via Session Hijacking.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 7",
+                    "question": "Login to the gNB2 and run a ping as before, how many packages are being send?",
+                    "solution": "0"
+                },
+                {
+                    "flag_id": "Flag 8",
+                    "question": "How this type of attack is called that caused as a result the denial of service?",
+                    "solution": "Session Hijacking"
+                }
+            ],
+            "next_steps": [
+                "Read the Red Team PFCP Flag"
+            ]
+        },
+        {
+            "step_number": 6,
+            "action": "Read the Red Team PFCP Flag",
+            "command": "Check the Docker logs or local notification for the generated string.",
+            "expected_output": "FLAG{PFCP_3XPL01T3D_!!11_R3D_W1N5}",
+            "explanation": "Successful execution of the PFCP attack triggers the generation of the red team's victory token inside the environment container.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 9",
+                    "question": "A new flag will be generated after the attack is successful in the docker what is the name of the flag?",
+                    "solution": "FLAG{PFCP_3XPL01T3D_!!11_R3D_W1N5}"
+                }
+            ],
+            "next_steps": [
+                "Inspect the Subscriber Configuration File"
+            ]
+        },
+        {
+            "step_number": 7,
+            "action": "Inspect the Subscriber Configuration File",
+            "command": "Locate and view the contents of the 'ue.yaml' configuration file situated in the root directory '/' path.",
+            "expected_output": "YAML configuration showing standard subscriber details: supi: 'imsi-999700000000001', mcc: 999, mnc: 70, along with security parameters like key and op/opc.",
+            "explanation": "The 'ue.yaml' file contains credentials that dictate how a simulated device registers with the 5G Core. To conduct the next phase (IMSI Spoofing), the attacker must capture or replicate structural parameter entries from valid subscribers.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 10",
+                    "question": "Where is the ue.yaml file path?",
+                    "solution": "/"
+                }
+            ],
+            "next_steps": [
+                "Discover Active Core Network Infrastructure via ARP"
+            ]
+        },
+        {
+            "step_number": 8,
+            "action": "Discover Active Core Network Infrastructure via ARP",
+            "command": "arp-scan-localnet-interface eth0",
+            "expected_output": "A list of alive physical/virtual network adapters on the local segment, identifying the IP address of gNB2 as 172.19.0.18.",
+            "explanation": "An attacker uses ARP scanning to map local network assets. By tracking sequence progression and identifying high-index duplicate responses, the attacker isolates the target identity belonging to gNB2.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 11",
+                    "question": "What is the IP of the gNB2?",
+                    "solution": "172.19.0.18"
+                }
+            ],
+            "next_steps": [
+                "Modify Subscriber Configuration for Impersonation"
+            ]
+        },
+        {
+            "step_number": 9,
+            "action": "Modify Subscriber Configuration for Impersonation",
+            "command": "Edit 'ue.yaml' to map to gNB2's IP. Modify the network slice settings ('configured-nssai' and 'default-nssai') by shifting 'sst' to 2 and 'sd' to 0x222222 (previously 0x111111).",
+            "expected_output": "The configuration file is updated with target slice identities.",
+            "explanation": "The Single Network Slice Selection Assistance Information (SST/SD) dictates how the core pathways direct data. By updating these numbers alongside the destination gateway, the attacker alters the targeted registration entry point.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 12",
+                    "question": "What is the default sd before editing the file?",
+                    "solution": "0x111111"
+                }
+            ],
+            "next_steps": [
+                "Execute the Subscriber Impersonation Sweep"
+            ]
+        },
+        {
+            "step_number": 10,
+            "action": "Execute the Subscriber Impersonation Sweep",
+            "command": "Edit the IMSI section from 'imsi-999700000000001' to 'imsi-999700000000010' and execute: nr-ue -c ue.yaml -n $3>88_t",
+            "expected_output": "The terminal reflects successive network registration sequences, creating multiple concurrent data connections up to interface 'uesimtun3'.",
+            "explanation": "By systematically modifying the trailing digits of the IMSI within the known network allocation block, the tool claims identity control over the slice. This forces legitimate users off the network, establishing 6 total network interfaces under attacker jurisdiction and allowing traffic interception.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 13",
+                    "question": "How many interfaces we have opened (including the old ones)?",
+                    "solution": "6"
+                },
+                {
+                    "flag_id": "Flag 14",
+                    "question": "So does the attacker need the opc keys, IMEI etc. To perform this type of attack Y/N ?",
+                    "solution": "YES"
+                }
+            ],
+            "next_steps": [
+                "Capture the IMSI Spoofing Flag"
+            ]
+        },
+        {
+            "step_number": 11,
+            "action": "Capture the IMSI Spoofing Flag",
+            "command": "Check the Docker terminal output window.",
+            "expected_output": "FLAG{1MS1_SP00F_SUCC3SSFUL_!1!_R3D_W1N5}",
+            "explanation": "Once full subscriber takeover and connection mapping are verified by the hypervisor, the platform registers successful exploitation and prints the flag.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 15",
+                    "question": "After the exploitation is successful, a flag will be generated inside the docker what is the flag (The flag will be like FLAG{XYZ})?",
+                    "solution": "FLAG{1MS1_SP00F_SUCC3SSFUL_!1!_R3D_W1N5}"
+                }
+            ],
+            "next_steps": [
+                "Analyze Malicious PFCP Payloads (Blue Team Mitigation)"
+            ]
+        },
+        {
+            "step_number": 12,
+            "action": "Analyze Malicious PFCP Payloads (Blue Team Mitigation)",
+            "command": "Open Wireshark or use command-line packet tools on the active UPF interfaces (3 total active) and filter by 'udp' protocol.",
+            "expected_output": "Incoming traffic reveals malicious control payloads measuring exactly 100 bytes in packet length, originating from the subnet block 10.0.45.0.",
+            "explanation": "Switching to a defensive role, the administrator inspects the network interfaces to diagnose the anomaly. Identifying structural traits like signature size (100 bytes) and source infrastructure blocks allows the creation of exact firewall filters.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 16",
+                    "question": "Login to the UPF and check for all for all interfaces with the ifconfig. How many interfaces do appear active?",
+                    "solution": "3"
+                },
+                {
+                    "flag_id": "Flag 17",
+                    "question": "What is the length of the packet in wireshark ?",
+                    "solution": "100"
+                },
+                {
+                    "flag_id": "Flag 18",
+                    "question": "What is the IP that is sending the malicious payload to the 5G network (Only the first 3 parts of the IP) ?",
+                    "solution": "10.0.45"
+                }
+            ],
+            "next_steps": [
+                "Deploy Targeted Core Network Firewalls"
+            ]
+        },
+        {
+            "step_number": 13,
+            "action": "Deploy Targeted Core Network Firewalls",
+            "command": "iptables -A INPUT -s 10.0.45.0/24 -p udp --dport 8805 -j DROP",
+            "expected_output": "The packet filtering table adds the restriction; all malicious injection traffic to PFCP port 8805 from the rogue subnet is discarded.",
+            "explanation": "Using standard rules without a source identifier causes a total network malfunction by blocking valid core communications. Adding the source flag ('-s') ensures that only the offending network node traffic is dropped, preserving normal 5G core functionality and earning the mitigation flag: FLAG{PFCP_EXPL01T4S10N_M1T1GAT3D_!1!_BLU3_W1NS}.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 19",
+                    "question": "Something is missing, what argument is missing so to configure a specific source or IP so only from specific sources, packets will be drop?",
+                    "solution": "-s"
+                },
+                {
+                    "flag_id": "Flag 20",
+                    "question": "After applying the rule to the upf a flag will appear at the end to the container what is the flag (The flag will be like FLAG{XYZ})?",
+                    "solution": "FLAG{PFCP_EXPL01T4S10N_M1T1GAT3D_!1!_BLU3_W1NS}"
+                }
+            ],
+            "next_steps": [
+                "Audit IMSI Entries for Discrepancies"
+            ]
+        },
+        {
+            "step_number": 14,
+            "action": "Audit IMSI Entries for Discrepancies",
+            "command": "Navigate to http://127.0.0.1:9999 via web browser using credentials 'admin' / '1423' and check subscriber identity mappings.",
+            "expected_output": "The dashboard lists subscriber fields where an illegitimate device entry is found with a mismatched IMEI: 915183666343338.",
+            "explanation": "To combat the IMSI Spoofing attack, the Blue Team logs into the Open5GS Web Administration interface. Because an attacker needs correct crypto keys and hardware parameters to mimic a phone, an unmatched identity configuration highlights rogue profile usage.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 21",
+                    "question": "What is IMEI discrepancy found?",
+                    "solution": "915183666343338"
+                }
+            ],
+            "next_steps": [
+                "Isolate Inter-Slice Communication and Establish Alerts"
+            ]
+        },
+        {
+            "step_number": 15,
+            "action": "Isolate Inter-Slice Communication and Establish Alerts",
+            "command": "Run tcpdump on 'uesimtun3' to save suspicious traffic logs. Isolate gNB nodes using: iptables -A INPUT -s <ip_of_gnb1> -j DROP -m limit --limit 5/min -j LOG --log-prefix \"BLOCKED: \" --log-level 4",
+            "expected_output": "The rule drops unauthorized cross-talk between the gNB entities while generating a rate-limited system log entry tagged with 'BLOCKED: '.",
+            "explanation": "Because gNB1 belongs exclusively to Slice 1, seeing more than 3 active interfaces or connections transferring to gNB2 indicates an intrusion state. Isolating inter-node traffic prevents lateral movement across slice segments, and configuring custom logging rules closes the lab by producing the final flag: FLAG{1MS1_SPOOF_M1T1G4TED_!111!!!_BLU3_WINS_111!!!}.",
+            "associated_flags": [
+                {
+                    "flag_id": "Flag 22",
+                    "question": "Login to the gNB 1 and find if their are any open interfaces above the uesimtun2 if their are more than 3 then new devices have been registered. How many new devices have been registered?",
+                    "solution": "2"
+                },
+                {
+                    "flag_id": "Flag 23",
+                    "question": "What is the name of that interface ?",
+                    "solution": "uesimtun3"
+                },
+                {
+                    "flag_id": "Flag 24",
+                    "question": "If logging is needed to see if malicious users are trying to attack the 5G Slice what changes are needed to log the attempt with iptables with log prefix \"BLOCKED: \"?",
+                    "solution": "-m limit --limit 5/min -j LOG --log-prefix \"BLOCKED: \" --log-level 4"
+                },
+                {
+                    "flag_id": "Flag 25",
+                    "question": "If the configuration of the flag is successful a flag will be generated. What is the content of \"flag4.txt\"",
+                    "solution": "FLAG{1MS1_SPOOF_M1T1G4TED_!111!!!_BLU3_WINS_111!!!}"
+                }
+            ]
+        }
+    ]
+}

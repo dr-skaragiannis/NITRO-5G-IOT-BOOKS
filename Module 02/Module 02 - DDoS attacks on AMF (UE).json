@@ -1,0 +1,73 @@
+{
+    "ctf_name": "IMSI Flood Attack on 5G Core Network",
+    "description": "This guide provides a step-by-step walkthrough for beginners on simulating a Denial-of-Service (DoS) attack on the 5G Access and Mobility Management Function (AMF) using UERANSIM. You'll learn how to overload the AMF with fake User Equipment (UE) registration requests, causing it to crash due to resource exhaustion. This is an educational exercise to understand 5G network vulnerabilities in a controlled lab environment. Assumes the 5G lab (Open5GS and UERANSIM) is already set up and running.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Access the UE Container",
+            "command": "docker exec -it open5gs-and-ueransim-ues1-1 bash",
+            "expected_output": "You are now inside the UE container's bash shell (prompt changes to something like 'root@open5gs-and-ueransim-ues1-1:/ueransim#')",
+            "explanation": "Docker is a tool that runs applications in isolated environments called containers. Here, we're entering the container simulating the User Equipment (UE), which acts like multiple 5G devices (e.g., smartphones). The 'exec -it' flags allow interactive terminal access. This step lets you run commands directly inside the simulated UE environment to prepare for the attack.",
+            "next_steps": [
+                "Verify the UE Configuration File"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "Verify the UE Configuration File",
+            "command": "ls && cat ue.yaml",
+            "expected_output": "Lists files including 'ue.yaml'; the content shows configuration details like IMSI, MCC, MNC, and gNB settings",
+            "explanation": "'ls' lists files in the current directory, and 'cat' displays the contents of a file. The 'ue.yaml' file is a configuration file in YAML format (a human-readable data format) that defines how the simulated UE behaves, including the International Mobile Subscriber Identity (IMSI), which is like a unique ID for mobile subscribers. Checking this ensures everything is set up correctly before launching the attack. If the file is missing, something's wrong with your lab setup.",
+            "next_steps": [
+                "Create the Bash Script for the DoS Attack"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Create the Bash Script for the DoS Attack",
+            "command": "nano script.sh (or use vi/emacs if preferred), then paste the following code: /bin/bash Number of parallel nr-ue instances to run\nPARALLEL_INSTANCES=5\n\n# Number of UEs per instance (as per your example)\nUES_PER_INSTANCE=200\n\n# Path to your UE config file\nUE_CONFIG=ue.yaml\n\nfor ((i=1; i<=PARALLEL_INSTANCES; i++)) do\n  echo Starting nr-ue instance #$i with $UES_PER_INSTANCE UEs\n  nr-ue -c $UE_CONFIG -n $UES_PER_INSTANCE &\n  sleep 0.5 # small delay to stagger start times, adjust as needed\ndone\n\nwait\necho All nr-ue instances started.",
+            "expected_output": "Script file 'script.sh' created with the provided content",
+            "explanation": "A bash script is a file containing commands that the shell (bash) can execute automatically. We're using 'nano' (a simple text editor) to create it. This script runs multiple instances of 'nr-ue', a tool from UERANSIM that simulates 5G UEs. The '-c ue.yaml' specifies the config file, and '-n 200' launches 200 simulated UEs per instance. The loop runs 5 parallel instances (totaling 1000 UEs), with a small delay to avoid overwhelming the system instantly. The '&' runs commands in the background, and 'wait' ensures the script finishes after all instances complete. This floods the AMF with registration requests, mimicking a DoS attack by exhausting its memory and CPU.",
+            "next_steps": [
+                "Make the Script Executable"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Make the Script Executable",
+            "command": "chmod +x script.sh",
+            "expected_output": "No output if successful; use 'ls -l' to confirm the file now has execute permissions (e.g., -rwxr-xr-x)",
+            "explanation": "'chmod' changes file permissions in Linux. '+x' adds execute permission, allowing you to run the script like a program. Without this, the system treats it as a regular text file and won't execute it. Always be cautious with permissions for security reasons.",
+            "next_steps": [
+                "Run the DoS Script"
+            ]
+        },
+        {
+            "step_number": 5,
+            "action": "Run the DoS Script",
+            "command": "./script.sh",
+            "expected_output": "Output showing instances starting, e.g., 'Starting nr-ue instance #1 with 200 UEs', followed by logs from nr-ue simulations. After running multiple times, look for errors like UE switching to state [deregistered] or [error] out of coverage.",
+            "explanation": "Running the script launches the simulated UEs, each sending NAS (Non-Access Stratum) registration requests to the AMF via the gNB (5G base station). In 5G networks, the AMF handles mobility and access; flooding it with requests (thousands in this case) causes it to run out of resources, leading to a crash. You may need to run the script 2-3 times to fully overload it. Monitor the output for signs of failure – this is where the 'flag' (error message) appears, educating you on how DoS affects network availability. The UE can't connect until the AMF recovers.",
+            "next_steps": [
+                "Monitor and Extract the Flag"
+            ]
+        },
+        {
+            "step_number": 6,
+            "action": "Monitor and Extract the Flag",
+            "command": "Watch the output from the script runs; if needed, check AMF logs in another terminal: docker logs open5gs-and-ueransim-amf-1 -f",
+            "expected_output": "Error messages like 'UE switches to state [deregistered]' or '[error] out of coverage' indicating the AMF crash and network unavailability",
+            "explanation": "The 'flag' is a specific error message that confirms the attack's success. In CTF challenges, flags are proofs of completion. Here, running the script multiple times overloads the AMF, causing legitimate UEs to deregister or lose coverage. Use 'docker logs' to tail (follow) the AMF container's logs in real-time. This step teaches how resource exhaustion in core network functions can disrupt services, a key vulnerability in 5G.",
+            "next_steps": [
+                "Reset the Environment"
+            ]
+        },
+        {
+            "step_number": 7,
+            "action": "Reset the Environment",
+            "command": "From the host terminal (outside containers, in the 5g-images/docs/open5gs-and-ueransim folder): docker compose -f ngc.yaml down && docker compose -f gnb1.yaml down && docker compose -f ngc.yaml up -d && ./register_subscriber.sh && docker compose -f gnb1.yaml up -d",
+            "expected_output": "Containers stopped and restarted; logs show successful startup and subscriber registration",
+            "explanation": "After a DoS attack, the environment may be unstable. 'docker compose down' stops and removes containers, while 'up -d' restarts them in detached mode (background). The './register_subscriber.sh' script re-registers subscribers in the database. This resets the 5G core and gNB, allowing you to test again or move to other exercises. It's like rebooting a crashed system – educational for understanding recovery in networked environments."
+        }
+    ]
+}

@@ -1,0 +1,93 @@
+{
+    "ctf_name": "Reconnaissance on 5G Network",
+    "description": "This guide provides a step-by-step walkthrough for beginners on performing reconnaissance in a simulated 5G network using Open5GS and UERANSIM. Reconnaissance is the initial phase of cybersecurity where you gather information about the target network without causing harm, such as identifying components, open ports, running services, and potential vulnerabilities including Common Vulnerabilities and Exposures (CVEs). You'll learn to list Docker containers, inspect networks, scan for live hosts and ports using nmap, check for CVEs using nmap scripts, and monitor traffic with tshark to uncover details about 5G core functions like the AMF (Access and Mobility Management Function) and UPF (User Plane Function). This educational exercise in a controlled lab helps understand 5G network vulnerabilities, such as known DoS issues in Open5GS (e.g., CVE-2025-15417), and how attackers might map out a system before an attack. Assumes the 5G lab is set up and running.",
+    "steps": [
+        {
+            "step_number": 1,
+            "action": "Access the Host Terminal",
+            "command": "Open a terminal on the host machine where the Docker containers are running (no specific command, just ensure you're at the host level, not inside a container)",
+            "expected_output": "The terminal prompt shows you're on the host, e.g., 'user@host:~/5g-lab$' or similar, with access to Docker commands.",
+            "explanation": "The 'host' is your main computer running the simulation. Docker containers simulate 5G components like UE, gNB, and core functions (AMF, SMF, etc.). Starting here allows you to manage and probe the entire setup. Reconnaissance often begins with understanding the environment's layout, like listing running services. This step sets the foundation for gathering info without direct interaction yet.",
+            "next_steps": [
+                "List Running Docker Containers"
+            ]
+        },
+        {
+            "step_number": 2,
+            "action": "List Running Docker Containers",
+            "command": "docker ps",
+            "expected_output": "A list of running containers appears, including names like 'open5gs-and-ueransim-amf-1', 'open5gs-and-ueransim-upf-1', 'open5gs-and-ueransim-gnb-1', 'open5gs-and-ueransim-ues1-1', with details on ports, images, and status.",
+            "explanation": "'docker ps' shows all active containers, like virtual machines for each 5G part. In reconnaissance, this is passive info gathering – identifying targets (e.g., AMF handles authentication). Note container names for later steps. This teaches how containerized environments (common in 5G for scalability) can reveal network structure.",
+            "next_steps": [
+                "Inspect the Docker Network"
+            ]
+        },
+        {
+            "step_number": 3,
+            "action": "Inspect the Docker Network",
+            "command": "docker network inspect bridge (or the specific network name if customized, e.g., 'docker network ls' first to find it)",
+            "expected_output": "JSON output showing network details, including 'Containers' with IPs like '172.17.0.2' for AMF, '172.17.0.3' for UPF, subnet (e.g., '172.17.0.0/16'), and gateway.",
+            "explanation": "Docker networks connect containers, simulating 5G's internal links. 'docker network inspect' reveals IPs and subnets – key for mapping the network. In real reconnaissance, this is like footprinting: finding address ranges to scan. Note IPs for active scanning; this passive step avoids detection.",
+            "next_steps": [
+                "Scan for Live Hosts Using nmap"
+            ]
+        },
+        {
+            "step_number": 4,
+            "action": "Scan for Live Hosts Using nmap",
+            "command": "nmap -sn 172.17.0.0/16 (replace with your subnet from previous step; assumes nmap is installed on host)",
+            "expected_output": "List of up hosts with IPs and MAC addresses (if applicable), e.g., 'Nmap scan report for 172.17.0.2 (open5gs-and-ueransim-amf-1)' showing live 5G components.",
+            "explanation": "nmap is a powerful scanning tool. '-sn' does ping scan (host discovery) without port probing, checking which IPs respond. This active reconnaissance identifies active devices in the 5G sim (e.g., gNB at one IP). It's like knocking on doors to see who's home. Be ethical: only in labs, as real scans can be illegal.",
+            "next_steps": [
+                "Scan Open Ports on a Specific Host"
+            ]
+        },
+        {
+            "step_number": 5,
+            "action": "Scan Open Ports on a Specific Host",
+            "command": "nmap -p- -sV 172.17.0.2 (use an IP from previous scans, e.g., AMF's IP; '-p-' scans all ports, '-sV' detects service versions)",
+            "expected_output": "Report showing open ports, e.g., 'Port 38412/tcp open sctp (NGAP for 5G AMF)', 'Port 80/tcp open http', with service details like 'open5gs-amf'.",
+            "explanation": "Ports are like doors on a device; open ones run services (e.g., SCTP on 38412 for 5G signaling). This active scan reveals vulnerabilities (e.g., outdated services). In 5G, knowing AMF's ports helps attackers target authentication. '-sV' adds version info for exploit research. This step builds on host discovery for deeper intel.",
+            "next_steps": [
+                "Scan for Known Vulnerabilities (CVEs)"
+            ]
+        },
+        {
+            "step_number": 6,
+            "action": "Scan for Known Vulnerabilities (CVEs)",
+            "command": "nmap -sV --script vulners 172.17.0.2 (use the same IP as before; assumes the vulners NSE script is installed – if not, install via 'nmap --script-updatedb' or similar)",
+            "expected_output": "Report listing potential CVEs based on service versions, e.g., 'open5gs-amf: CVE-2025-15417 (DoS in GTPv2-C Handler)', with severity scores and references.",
+            "explanation": "Building on version detection, the 'vulners' script queries a vulnerability database (vulners.com) to find known CVEs matching the services and versions detected. In 5G contexts like Open5GS, this might reveal DoS vulnerabilities (e.g., CVE-2025-15417 affecting GTPv2-C). CVE scanning is a key recon step to identify exploitable weaknesses without attempting exploits. Tools like this help prioritize risks; in real scenarios, cross-reference with official sources like NIST NVD for accuracy.",
+            "next_steps": [
+                "Monitor Network Traffic with tshark"
+            ]
+        },
+        {
+            "step_number": 7,
+            "action": "Monitor Network Traffic with tshark",
+            "command": "tshark -i any -f 'port 38412' (monitors SCTP traffic on port 38412; run in a terminal, or use '-c 50' to capture 50 packets)",
+            "expected_output": "Captured packets showing SCTP chunks, source/dest IPs, perhaps NGAP messages like registration requests from UE to AMF.",
+            "explanation": "tshark (Wireshark's CLI) sniffs packets passively. '-i any' captures on all interfaces, '-f port 38412' filters for 5G signaling. This reveals communication patterns (e.g., UE-AMF handshakes) without sending data. Passive recon avoids detection; analyze for protocols like NGAP (Next Generation Application Protocol) in 5G.",
+            "next_steps": [
+                "Analyze Captured Traffic"
+            ]
+        },
+        {
+            "step_number": 8,
+            "action": "Analyze Captured Traffic",
+            "command": "tshark -r capture.pcap -Y 'ngap' (first save capture with 'tshark ... > capture.pcap', then analyze; or use Wireshark GUI for visual dissection)",
+            "expected_output": "Decoded packets showing NGAP procedures, e.g., 'InitialUEMessage', with details like IMSI or SUPI if unencrypted.",
+            "explanation": "Analysis decodes packets to extract info (e.g., 5G identities). '-Y ngap' filters for NGAP display. This uncovers network topology, like how UE connects to core. In recon, this identifies weak points (e.g., unencrypted signaling). Use Wireshark for easier viewing – load .pcap and apply filters.",
+            "next_steps": [
+                "Extract the Flag"
+            ]
+        },
+        {
+            "step_number": 9,
+            "action": "Extract the Flag",
+            "command": "Review scan and capture outputs (no new command, analyze results)",
+            "expected_output": "Identify key details, e.g., the SCTP port 38412 running NGAP, a specific message type like 'INIT_ACK', or a CVE like 'CVE-2025-15417'. The flag is something like 'NGAP Initial UE Message' or a found CVE ID.",
+            "explanation": "The 'flag' proves completion, often a unique identifier from recon (e.g., service on a port or a CVE). Here, it might be the protocol on AMF's port or a vulnerability ID from CVE scanning. This step synthesizes info: reconnaissance compiles data for planning attacks. In 5G, knowing ports, protocols, and CVEs aids in exploiting like replay attacks from prior modules. Always secure real networks with firewalls, updates, and encryption."
+        }
+    ]
+}
